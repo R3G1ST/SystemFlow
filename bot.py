@@ -45,19 +45,22 @@ class MarzbanBot:
 
     # ===== КЛАВИАТУРЫ =====
 
-    def _get_main_kb(self, lang: str = "ru") -> ReplyKeyboardMarkup:
+    def _get_main_kb(self, telegram_id: int) -> ReplyKeyboardMarkup:
         """Reply клавиатура — главное меню"""
-        g = lambda k: i18n.get(k)  # для краткости в текущем языке
-        # Но нужно с учётом языка пользователя, пока используем дефолт
         buttons = [
-            [KeyboardButton(text=i18n.get("btn_status")), KeyboardButton(text=i18n.get("btn_security"))],
-            [KeyboardButton(text=i18n.get("btn_users")), KeyboardButton(text=i18n.get("btn_docker"))],
-            [KeyboardButton(text=i18n.get("btn_backup")), KeyboardButton(text=i18n.get("btn_reports"))],
-            [KeyboardButton(text=i18n.get("btn_banned")), KeyboardButton(text=i18n.get("btn_connections"))],
-            [KeyboardButton(text=i18n.get("btn_logs")), KeyboardButton(text=i18n.get("btn_settings"))],
-            [KeyboardButton(text=i18n.get("btn_help"))],
+            [KeyboardButton(text=i18n.get("btn_status", telegram_id)),
+             KeyboardButton(text=i18n.get("btn_security", telegram_id))],
+            [KeyboardButton(text=i18n.get("btn_users", telegram_id)),
+             KeyboardButton(text=i18n.get("btn_docker", telegram_id))],
+            [KeyboardButton(text=i18n.get("btn_backup", telegram_id)),
+             KeyboardButton(text=i18n.get("btn_reports", telegram_id))],
+            [KeyboardButton(text=i18n.get("btn_banned", telegram_id)),
+             KeyboardButton(text=i18n.get("btn_connections", telegram_id))],
+            [KeyboardButton(text=i18n.get("btn_logs", telegram_id)),
+             KeyboardButton(text=i18n.get("btn_settings", telegram_id))],
+            [KeyboardButton(text=i18n.get("btn_help", telegram_id))],
         ]
-        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True, input_field_placeholder="Выберите действие...")
 
     def _get_lang_kb(self) -> InlineKeyboardMarkup:
         """Inline клавиатура выбора языка"""
@@ -66,36 +69,39 @@ class MarzbanBot:
             [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
         ])
 
-    def _get_security_kb(self) -> ReplyKeyboardMarkup:
+    def _get_security_kb(self, uid: int) -> ReplyKeyboardMarkup:
         """Reply клавиатура — безопасность"""
         buttons = [
-            [KeyboardButton(text=i18n.get("btn_banned")), KeyboardButton(text=i18n.get("btn_connections"))],
-            [KeyboardButton(text=i18n.get("btn_logs")), KeyboardButton(text="🔍 Top Attackers")],
-            [KeyboardButton(text="↩️ " + i18n.get("btn_status"))],
+            [KeyboardButton(text=i18n.get("btn_banned", uid)),
+             KeyboardButton(text=i18n.get("btn_connections", uid))],
+            [KeyboardButton(text=i18n.get("btn_logs", uid)),
+             KeyboardButton(text="🔍 Top Attackers")],
+            [KeyboardButton(text="↩️ " + i18n.get("btn_status", uid))],
         ]
         return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
-    def _get_docker_kb(self) -> ReplyKeyboardMarkup:
+    def _get_docker_kb(self, uid: int) -> ReplyKeyboardMarkup:
         """Reply клавиатура — docker"""
         buttons = [
             [KeyboardButton(text="📊 Containers"), KeyboardButton(text="📝 Logs")],
-            [KeyboardButton(text="↩️ " + i18n.get("btn_status"))],
+            [KeyboardButton(text="↩️ " + i18n.get("btn_status", uid))],
         ]
         return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
-    def _get_attack_action_kb(self, ip: str) -> InlineKeyboardMarkup:
+    def _get_attack_action_kb(self, ip: str, uid: int = None) -> InlineKeyboardMarkup:
         """Inline кнопки для уведомлений об атаках"""
+        tid = uid if uid else None  # если нет uid, используем дефолтный язык
         return InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text=f"🚫 {i18n.get('btn_ban_ip')} {ip}", callback_data=f"ban_ip:{ip}"),
-                InlineKeyboardButton(text=f"🔍 {i18n.get('btn_ip_info')}", callback_data=f"ip_info:{ip}"),
+                InlineKeyboardButton(text=f"🚫 {i18n.get('btn_ban_ip', tid)} {ip}", callback_data=f"ban_ip:{ip}"),
+                InlineKeyboardButton(text=f"🔍 {i18n.get('btn_ip_info', tid)}", callback_data=f"ip_info:{ip}"),
             ],
             [
-                InlineKeyboardButton(text=i18n.get("btn_ban_1h"), callback_data=f"ban_temp:{ip}:3600"),
-                InlineKeyboardButton(text=i18n.get("btn_ban_24h"), callback_data=f"ban_temp:{ip}:86400"),
+                InlineKeyboardButton(text=i18n.get("btn_ban_1h", tid), callback_data=f"ban_temp:{ip}:3600"),
+                InlineKeyboardButton(text=i18n.get("btn_ban_24h", tid), callback_data=f"ban_temp:{ip}:86400"),
             ],
             [
-                InlineKeyboardButton(text=i18n.get("btn_whois"), callback_data=f"whois:{ip}"),
+                InlineKeyboardButton(text=i18n.get("btn_whois", tid), callback_data=f"whois:{ip}"),
             ],
         ])
 
@@ -124,7 +130,7 @@ class MarzbanBot:
     async def cmd_help(self, message: types.Message):
         uid = message.from_user.id
         text = f"{i18n.get('help_title', uid)}\n\n{i18n.get('help_text', uid)}"
-        await message.answer(text, parse_mode="Markdown", reply_markup=self._get_main_kb(i18n.get_user_lang(uid)))
+        await message.answer(text, parse_mode="Markdown", reply_markup=self._get_main_kb(uid))
 
     async def cmd_banned(self, message: types.Message):
         uid = message.from_user.id
@@ -222,7 +228,7 @@ class MarzbanBot:
             await self.cmd_status(message)
         elif text == i18n.get("btn_security"):
             await message.answer(f"🔒 {i18n.get('security_menu_title', uid)}", parse_mode="Markdown",
-                                 reply_markup=self._get_security_kb())
+                                 reply_markup=self._get_security_kb(uid))
         elif text == i18n.get("btn_banned"):
             await self.cmd_banned(message)
         elif text == i18n.get("btn_connections"):
@@ -233,7 +239,7 @@ class MarzbanBot:
             await message.answer("👥 Команда `/users` (нужен API токен)", parse_mode="Markdown")
         elif text == i18n.get("btn_docker"):
             await message.answer(f"🐳 {i18n.get('cmd_docker_title', uid)}", parse_mode="Markdown",
-                                 reply_markup=self._get_docker_kb())
+                                 reply_markup=self._get_docker_kb(uid))
         elif text == i18n.get("btn_backup"):
             await self.cmd_backup(message)
         elif text == i18n.get("btn_reports"):
@@ -243,7 +249,7 @@ class MarzbanBot:
         elif text == i18n.get("btn_help"):
             await self.cmd_help(message)
         else:
-            await message.answer(i18n.get("unknown_command", uid), reply_markup=self._get_main_kb(i18n.get_user_lang(uid)))
+            await message.answer(i18n.get("unknown_command", uid), reply_markup=self._get_main_kb(uid))
 
     async def _show_settings(self, message: types.Message):
         uid = message.from_user.id
@@ -270,7 +276,16 @@ class MarzbanBot:
                 i18n.set_user_lang(uid, lang)
                 self.db.save_user_settings(uid, callback.from_user.username, lang)
                 await callback.answer(i18n.get("language_set", uid))
-                await callback.message.edit_text(i18n.get("language_set", uid), reply_markup=self._get_main_kb(lang))
+                # Удаляем inline клавиатуру языка и отправляем главное меню с reply
+                await callback.message.edit_text(
+                    i18n.get("language_set", uid),
+                    reply_markup=types.ReplyKeyboardRemove()
+                )
+                await callback.message.answer(
+                    f"✅ {i18n.get('main_menu', uid)}",
+                    reply_markup=self._get_main_kb(uid),
+                    parse_mode="Markdown"
+                )
 
             elif data.startswith("ban_ip:"):
                 ip = data.split(":", 1)[1]
@@ -382,7 +397,12 @@ class MarzbanBot:
                            ip=ip, flag=flag, country=geo['country'], city=geo['city'],
                            isp=geo['isp'], panel=panel, time=data['timestamp'],
                            attempts=self.db.get_recent_attempts(ip, 60))
-            await self._notify_all(text, self._get_attack_action_kb(ip))
+            for aid in Config.ADMIN_USER_IDS:
+                kb = self._get_attack_action_kb(ip, aid)
+                try:
+                    await self.bot.send_message(aid, text, reply_markup=kb, parse_mode="Markdown")
+                except:
+                    pass
 
     async def _on_200(self, data):
         ip, panel = data["ip"], data["panel"]
@@ -436,7 +456,7 @@ class MarzbanBot:
             text += f"\n🔝 **{i18n.get('top_processes', uid)}**\n"
             for p in s["top_processes"][:3]:
                 text += f"• `{p['name']}` — CPU: {p['cpu']}%, RAM: {p['mem']:.1f}%\n"
-        kb = self._get_main_kb(i18n.get_user_lang(uid))
+        kb = self._get_main_kb(uid)
         await target.answer(text, parse_mode="Markdown", reply_markup=kb)
 
     @staticmethod
