@@ -113,12 +113,59 @@ class SecurityHandler:
             elif data == "clear_old_bans":
                 await self._clear_old_bans(callback, telegram_id)
 
+            elif data == "status":
+                await callback.answer("Используйте /status", show_alert=False)
+
+            elif data == "security_menu":
+                await callback.message.answer(
+                    "🔒 **Меню безопасности**",
+                    parse_mode="Markdown",
+                    reply_markup=self.get_main_security_keyboard()
+                )
+                await callback.answer()
+
+            elif data == "users_menu":
+                await callback.answer("Используйте /users", show_alert=False)
+
+            elif data == "docker_menu":
+                await callback.answer("Используйте /docker", show_alert=False)
+
+            elif data == "reports_menu":
+                await callback.answer("Используйте /reports", show_alert=False)
+
+            elif data == "settings_menu":
+                await callback.answer("⚙️ Настройки в разработке", show_alert=True)
+
+            elif data == "detailed_status":
+                await callback.answer("Используйте /status для подробностей", show_alert=False)
+
+            elif data.startswith("docker_restart:"):
+                container = data.split(":", 1)[1]
+                await self._docker_restart(callback, container)
+
             else:
-                await callback.answer("❓ Неизвестная команда")
+                await callback.answer(f"❓ Callback: {data[:30]}")
 
         except Exception as e:
             print(f"[SECURITY] Callback error: {e}")
             await callback.answer("❌ Ошибка", show_alert=True)
+
+    async def _docker_restart(self, callback: CallbackQuery, container: str):
+        """Перезапуск Docker контейнера"""
+        import subprocess
+        await callback.answer(f"⏳ Перезапуск {container}...", show_alert=False)
+
+        try:
+            result = subprocess.run(
+                ["docker", "restart", container],
+                capture_output=True, timeout=30
+            )
+            if result.returncode == 0:
+                await callback.message.answer(f"✅ Контейнер `{container}` перезапущен!", parse_mode="Markdown")
+            else:
+                await callback.message.answer(f"❌ Ошибка перезапуска: {result.stderr.decode()[:200]}")
+        except Exception as e:
+            await callback.message.answer(f"❌ Ошибка: {e}")
 
     async def _ban_ip(self, callback: CallbackQuery, ip: str, telegram_id: int, ban_type: str):
         """Забанить IP"""

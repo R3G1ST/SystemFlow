@@ -265,7 +265,8 @@ class MarzbanBot:
         self.dp.message.register(self.admin_handler.cmd_backup, Command("backup"))
         self.dp.message.register(self.users_handler.cmd_users, Command("users"))
 
-        # Callback queries
+        # Callback queries — ловим ВСЕ callback
+        from aiogram.types import CallbackQuery
         self.dp.callback_query.register(self.security_handler.handle_callback)
 
     async def periodic_tasks(self):
