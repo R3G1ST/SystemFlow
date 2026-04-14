@@ -150,7 +150,7 @@ class BotApp:
 
     # ========== ГЛАВНЫЕ ЭКРАНЫ ==========
 
-    async def _show_status(self, target, uid):
+    async def _show_status(self, target, uid, is_refresh=False):
         s = self.sys_mon.get_full_status()
         containers = self.doc_mon.get_containers_status()
         cpu, ram, disk = s["cpu"], s["ram"]["percent"], s["disk"]["percent"]
@@ -178,7 +178,25 @@ class BotApp:
             text += f"\n🔝 **{i18n.get('top_processes', uid)}**\n"
             for p in s["top_processes"][:3]:
                 text += f"• `{p['name']}` — CPU: {p['cpu']}%, RAM: {p['mem']:.1f}%\n"
-        await self._send(target, text, self._main_kb(uid))
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), "refresh_status")],
+        ])
+        # Если обновление — редактируем, иначе новое сообщение
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except:
+                pass
+        # Обычное новое сообщение с reply-клавиатурой
+        main_kb = self._main_kb(uid)
+        if isinstance(target, types.CallbackQuery):
+            await target.message.answer(text, reply_markup=main_kb)
+            await target.answer()
+        else:
+            await target.answer(text, reply_markup=main_kb)
 
     async def _show_security(self, target, uid):
         text = f"🔒 **{i18n.get('security_menu', uid)}**"
@@ -198,7 +216,7 @@ class BotApp:
 
     # ===== ЗАБАНЕННЫЕ =====
 
-    async def _show_banned(self, target, uid):
+    async def _show_banned(self, target, uid, is_refresh=False):
         banned = self.db.get_banned_ips(limit=15)
         total = self.db.get_banned_count()
         if not banned:
@@ -213,11 +231,18 @@ class BotApp:
             text += f"• `{b['ip']}` {flag} — {geo.get('country', '?')}\n  📅 {b['banned_at'][:16]}\n\n"
             kb_btns.append([IKB(f"🔓 {b['ip']}", f"unban_ip:{b['ip']}")])
         kb_btns.append([IKB("🔄 " + i18n.get("refresh", uid), "refresh_banned"), IKB(i18n.get("btn_back", uid), "back_to_main")])
-        await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
+        kb = InlineKeyboardMarkup(inline_keyboard=kb_btns)
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
+        await self._send(target, text, kb)
 
     # ===== ТОП АТАКУЮЩИХ =====
 
-    async def _show_top_attackers(self, target, uid):
+    async def _show_top_attackers(self, target, uid, is_refresh=False):
         attackers = self.db.get_top_attackers(15)
         if not attackers:
             await self._send(target, f"📊 {i18n.get('no_attack_data', uid)}", self._security_kb(uid))
@@ -230,11 +255,17 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), "refresh_attackers"), IKB(i18n.get("btn_back", uid), "back_to_main")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
     # ===== СОЕДИНЕНИЯ =====
 
-    async def _show_connections(self, target, uid):
+    async def _show_connections(self, target, uid, is_refresh=False):
         try:
             r = subprocess.run(
                 "ss -tn state established | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -20",
@@ -255,6 +286,12 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), "refresh_connections"), IKB(i18n.get("btn_back", uid), "back_to_main")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
     # ===== ЛОГИ =====
@@ -268,7 +305,7 @@ class BotApp:
         ])
         await self._send(target, text, kb)
 
-    async def _show_logs_lines(self, target, uid, count):
+    async def _show_logs_lines(self, target, uid, count, is_refresh=False):
         try:
             r = subprocess.run(["docker", "logs", "--tail", str(count), "marzban-marzban-1"],
                                capture_output=True, text=True, timeout=10)
@@ -284,6 +321,12 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), f"logs:{count}"), IKB(i18n.get("btn_back", uid), "back_to_main")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
     async def _show_logs_sec(self, target, uid):
@@ -291,7 +334,7 @@ class BotApp:
 
     # ===== DOCKER КОНТЕЙНЕРЫ =====
 
-    async def _show_docker_containers(self, target, uid):
+    async def _show_docker_containers(self, target, uid, is_refresh=False):
         containers = self.doc_mon.get_containers_status()
         if not containers:
             await self._send(target, f"ℹ️ Нет контейнеров", self._docker_kb(uid))
@@ -304,7 +347,14 @@ class BotApp:
             if c["running"]:
                 kb_btns.append([IKB(f"🔄 {c['name']}", f"docker_restart:{c['name']}")])
         kb_btns.append([IKB("🔄 " + i18n.get("refresh", uid), "cb_docker_containers"), IKB(i18n.get("btn_back", uid), "back_to_main")])
-        await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
+        kb = InlineKeyboardMarkup(inline_keyboard=kb_btns)
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
+        await self._send(target, text, kb)
 
     # ===== DOCKER ЛОГИ =====
 
@@ -319,7 +369,7 @@ class BotApp:
         kb_btns.append([IKB(i18n.get("btn_back", uid), "back_to_main")])
         await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
 
-    async def _show_docker_container_logs(self, target, uid, container):
+    async def _show_docker_container_logs(self, target, uid, container, is_refresh=False):
         try:
             r = subprocess.run(["docker", "logs", "--tail", "50", container],
                                capture_output=True, text=True, timeout=10)
@@ -330,11 +380,17 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), f"dlogs:{container}"), IKB(i18n.get("btn_back", uid), "cb_docker_containers")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
     # ===== UNBAN =====
 
-    async def _show_unban(self, target, uid):
+    async def _show_unban(self, target, uid, is_refresh=False):
         banned = self.db.get_banned_ips(limit=15)
         if not banned:
             await self._send(target, f"✅ {i18n.get('banned_empty', uid)}", self._security_kb(uid))
@@ -347,7 +403,14 @@ class BotApp:
             text += f"• `{b['ip']}` {flag}\n"
             kb_btns.append([IKB(f"🔓 {b['ip']}", f"unban_ip:{b['ip']}")])
         kb_btns.append([IKB("🔄 " + i18n.get("refresh", uid), "cb_unban"), IKB(i18n.get("btn_back", uid), "back_to_main")])
-        await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
+        kb = InlineKeyboardMarkup(inline_keyboard=kb_btns)
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
+        await self._send(target, text, kb)
 
     # ===== ПОЛЬЗОВАТЕЛИ =====
 
@@ -395,7 +458,7 @@ class BotApp:
 
     # ===== ОТЧЁТЫ С ГРАФИКАМИ =====
 
-    async def _show_report_cpu(self, target, uid):
+    async def _show_report_cpu(self, target, uid, is_refresh=False):
         metrics = self.db.get_recent_metrics(100)
         if not metrics:
             await self._send(target, "📊 Нет данных для графика CPU", self._reports_kb(uid))
@@ -412,9 +475,15 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), "cb_report_cpu"), IKB(i18n.get("btn_back", uid), "back_to_main")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
-    async def _show_report_ram(self, target, uid):
+    async def _show_report_ram(self, target, uid, is_refresh=False):
         metrics = self.db.get_recent_metrics(100)
         if not metrics:
             await self._send(target, "📊 Нет данных для графика RAM", self._reports_kb(uid))
@@ -431,9 +500,15 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), "cb_report_ram"), IKB(i18n.get("btn_back", uid), "back_to_main")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
-    async def _show_report_attacks(self, target, uid):
+    async def _show_report_attacks(self, target, uid, is_refresh=False):
         stats = self.db.get_weekly_stats()
         if not stats:
             await self._send(target, "📊 Нет данных об атаках", self._reports_kb(uid))
@@ -449,6 +524,12 @@ class BotApp:
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), "cb_report_attacks"), IKB(i18n.get("btn_back", uid), "back_to_main")]
         ])
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except: pass
         await self._send(target, text, kb)
 
     async def _show_report_daily(self, target, uid):
@@ -609,12 +690,12 @@ class BotApp:
             # Логи
             elif data.startswith("logs:"):
                 count = int(data.split(":")[1])
-                await self._show_logs_lines(cb, uid, count)
+                await self._show_logs_lines(cb, uid, count, is_refresh=True)
 
             # Docker логи
             elif data.startswith("dlogs:"):
                 container = data.split(":", 1)[1]
-                await self._show_docker_container_logs(cb, uid, container)
+                await self._show_docker_container_logs(cb, uid, container, is_refresh=True)
 
             # Docker рестарт
             elif data.startswith("docker_restart:"):
@@ -638,29 +719,32 @@ class BotApp:
                 await cb.message.answer(f"🏠 {i18n.get('main_menu', uid)}", reply_markup=self._main_kb(uid))
                 await cb.answer()
 
+            elif data == "refresh_status":
+                await self._show_status(cb, uid, is_refresh=True)
+
             elif data == "cb_docker_containers":
-                await self._show_docker_containers(cb, uid)
+                await self._show_docker_containers(cb, uid, is_refresh=True)
 
             elif data == "cb_unban":
-                await self._show_unban(cb, uid)
+                await self._show_unban(cb, uid, is_refresh=True)
 
             elif data == "refresh_banned":
-                await self._show_banned(cb, uid)
+                await self._show_banned(cb, uid, is_refresh=True)
 
             elif data == "refresh_attackers":
-                await self._show_top_attackers(cb, uid)
+                await self._show_top_attackers(cb, uid, is_refresh=True)
 
             elif data == "refresh_connections":
-                await self._show_connections(cb, uid)
+                await self._show_connections(cb, uid, is_refresh=True)
 
             elif data == "cb_report_cpu":
-                await self._show_report_cpu(cb, uid)
+                await self._show_report_cpu(cb, uid, is_refresh=True)
 
             elif data == "cb_report_ram":
-                await self._show_report_ram(cb, uid)
+                await self._show_report_ram(cb, uid, is_refresh=True)
 
             elif data == "cb_report_attacks":
-                await self._show_report_attacks(cb, uid)
+                await self._show_report_attacks(cb, uid, is_refresh=True)
 
             elif data == "noop":
                 await cb.answer()
