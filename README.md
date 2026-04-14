@@ -2,466 +2,283 @@
 
 # 🛡️ SystemFlow
 
-**Универсальный Telegram-бот для безопасности и мониторинга сервера с Marzban**
+**🇷🇺 Универсальный Telegram-бот для безопасности и мониторинга сервера с Marzban**
+
+**🇬🇧 Universal Telegram Bot for Marzban Server Security & Monitoring**
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![aiogram](https://img.shields.io/badge/aiogram-3.x-yellow.svg)](https://docs.aiogram.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Marzban](https://img.shields.io/badge/Marzban-Совместим-orange.svg)](https://github.com/Gozargah/Marzban)
-[![Stars](https://img.shields.io/github/stars/R3G1ST/SystemFlow?style=social)](https://github.com/R3G1ST/SystemFlow/stargazers)
+[![Marzban](https://img.shields.io/badge/Marzban-Compatible-orange.svg)](https://github.com/Gozargah/Marzban)
 
-<img src="https://img.shields.io/badge/🔐_Безопасность-Мониторинг-red?style=for-the-badge" alt="Security">
-<img src="https://img.shields.io/badge/📊_Аналитика-Реальное_время-blue?style=for-the-badge" alt="Analytics">
-<img src="https://img.shields.io/badge/🚫_Автобан-Мгновенный-green?style=for-the-badge" alt="AutoBan">
-
-**Установка в одну команду • Поддержка нескольких панелей • Оповещения в реальном времени • GeoIP • Графики**
-
-[🚀 Быстрый старт](#-установка) • [📖 Возможности](#-возможности) • [📋 Команды](#-команды-бота) • [💬 Поддержка](#-поддержка)
+**[🇷🇺 Русская версия](#-русский)** • **[🇬🇧 English Version](#-english)**
 
 </div>
 
 ---
 
-## 📸 Скриншоты
+<div align="center">
 
-<details>
-<summary><b>Нажмите чтобы увидеть скриншоты</b></summary>
+# 🇷🇺 Русский
 
-| Оповещение о входе | Статус сервера | Бан IP |
-|:---:|:---:|:---:|
-| 🔔 Уведомления о 401 в реальном времени | 📊 Полный обзор системы | 🚫 Бан IP одним кликом |
-| Страна + провайдер | CPU/RAM/Диск + Docker | Временный или постоянный |
-
-</details>
-
----
+</div>
 
 ## ✨ Возможности
 
-### 🔐 Безопасность и защита
-- **Мониторинг логов в реальном времени** — отслеживает Docker-логи Marzban
-- **Мгновенные оповещения о 401** — уведомление о каждой неудачной попытке входа
-- **Бан IP одной кнопкой** — блокировка хакера прямо из уведомления в Telegram
-- **Умный автобан** — автоматический бан после N неудачных попыток (настраивается)
-- **GeoIP определение** — страна, город, провайдер, ASN с флагом 🇷🇺🇮🇷🇺🇸🇩🇪
-- **WHOIS информация** — детальные данные об IP-адресе
-- **Временные баны** — варианты на 1 час, 24 часа или навсегда
-- **Белый список** — никогда не банить доверенные IP
-- **Аудит-лог** — запись каждого действия
+### 🔐 Безопасность
+- **Мониторинг логов** в реальном времени
+- **Мгновенные уведомления** о попытках входа (401)
+- **Бан IP кнопкой** прямо из уведомления
+- **Автобан** после N неудачных попыток
+- **GeoIP** — страна, город, провайдер с флагом 🇷🇺🇮🇷🇺🇸
+- **WHOIS** информация об IP
+- **Временные баны** — 1ч, 24ч или навсегда
 
 ### 📊 Мониторинг системы
-- **CPU / RAM / Диск** — отслеживание ресурсов в реальном времени
-- **Активные соединения** — мониторинг TCP/UDP подключений
-- **Сетевой трафик** — отправленные/полученные байты
-- **Load Average** — метрики нагрузки системы
-- **ТОП процессов** — потребители CPU и RAM
-- **Аптайм сервера** — время с последней загрузки
-- **Оповещения о порогах** — уведомления при превышении лимитов
+- CPU, RAM, Disk usage
+- Активные соединения
+- Сетевой трафик
+- ТОП процессов
+- Uptime сервера
+- **Оповещения** при превышении порогов
 
-### 🐳 Управление Docker
-- **Статус контейнеров** — мониторинг всех контейнеров Marzban
-- **Использование ресурсов** — CPU/RAM/сеть на каждый контейнер
-- **Оповещения о падении** — мгновенное уведомление если контейнер упал
-- **Удалённый перезапуск** — перезапуск контейнеров из Telegram
-- **Автообнаружение** — автоматически находит панели Marzban
+### 🐳 Docker
+- Статус контейнеров
+- Ресурсы контейнеров
+- Уведомления о падении/перезапуске
+- Перезапуск из бота
 
-### 👥 Управление пользователями Marzban
-- **Список пользователей** — все подписчики со статистикой трафика
-- **Отслеживание статуса** — активный, отключён, лимит, истёк
-- **Мониторинг трафика** — использовано vs лимит с прогрессом
-- **Оповещения об истечении** — уведомления о заканчивающихся подписках
-- **Сброс трафика** — сброс использованного трафика
-- **Отключение пользователей** — блокировка доступа из бота
-- **Создание пользователей** — добавление новых подписчиков (скоро)
+### 💬 Telegram
+- **Reply-клавиатуры** — все команды кнопками
+- **Inline-кнопки** — для действий (бан, инфо)
+- **Два языка** — 🇷🇺 Русский и 🇬🇧 English
+- **Выбор языка** при первом запуске
 
-### 📈 Отчёты и аналитика
-- **Графики CPU/RAM** — красивые PNG-графики
-- **Статистика атак** — ежедневные/еженедельные графики атак
-- **Тренды соединений** — визуализация паттернов подключений
-- **Ежедневные отчёты** — автоматическая сводка каждый день
-- **Еженедельная аналитика** — 7-дневный обзор с трендами
-- **ТОП атакующих** — лидерборд атакующих IP
-
-### 💾 Бэкапы и восстановление
-- **Бэкап одной кнопкой** — создание бэкапа Marzban из бота
-- **Автобэкап** — запланированные бэкапы через cron
-- **Доставка файла** — отправка бэкапа в Telegram
-- **История бэкапов** — список всех бэкапов с размером/датой
-
-### 🌍 Несколько панелей и серверов
-- **Автообнаружение** — находит все Docker-контейнеры Marzban
-- **Мульти-панель** — мониторинг нескольких панелей одновременно
-- **Универсальный установщик** — работает на любом Ubuntu сервере
-- **Настраиваемый** — файл `.env` для всех настроек
-
----
+### 📈 Отчёты и бэкапы
+- Графики CPU/RAM/атак
+- Ежедневные отчёты
+- Бэкап одной кнопкой
+- Отправка файла в чат
 
 ## 🚀 Установка
 
-### Установка в одну строку (Рекомендуется)
+### В одну команду:
 
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/R3G1ST/SystemFlow/main/install.sh)
 ```
 
-### Ручная установка
+### Вручную:
 
 ```bash
-# 1. Клонируйте репозиторий
-cd /opt
-git clone https://github.com/R3G1ST/SystemFlow.git
-cd SystemFlow
-
-# 2. Запустите установщик
-bash install.sh
+cd /opt && git clone https://github.com/R3G1ST/SystemFlow.git
+cd SystemFlow && bash install.sh
 ```
 
-### Установка через Docker (Скоро)
-
-```bash
-docker run -d \
-  --name systemflow \
-  --network host \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v $(pwd)/.env:/app/.env \
-  r3g1st/systemflow:latest
-```
-
----
-
-## ⚙️ Настройка
-
-Создайте файл `.env` (установщик делает это автоматически):
+### Настройка .env
 
 ```env
-# ─── Telegram Бот ─────────────────────────
-# Получить токен от @BotFather
+# Токен бота от @BotFather
 BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
 
-# Ваш Telegram ID (получить от @userinfobot)
-# Несколько админов: 123456789,987654321
+# Ваш Telegram ID (от @userinfobot)
 ADMIN_USER_IDS=123456789
 
-# ─── Безопасность ──────────────────────────
-# Автобан после N неудачных попыток
-MAX_LOGIN_ATTEMPTS=3
-BAN_TIME_WINDOW=300        # окно 5 минут
-AUTOBAN_ENABLED=true
-
-# ─── Уведомления ───────────────────────────
-NOTIFY_ON_401=true         # Оповещения о неудачном входе
-NOTIFY_ON_BAN=true         # Подтверждения бана
-NOTIFY_ON_HIGH_CPU=true    # Оповещения о пороге CPU
-NOTIFY_ON_HIGH_RAM=true    # Оповещения о пороге RAM
-CPU_THRESHOLD=80           # Проценты
-RAM_THRESHOLD=90           # Проценты
-CONNECTIONS_THRESHOLD=500  # Максимум соединений
-
-# ─── Мониторинг ────────────────────────────
-MONITOR_INTERVAL=3         # Интервал проверки логов (секунды)
-SYSTEM_CHECK_INTERVAL=30   # Интервал метрик системы
-
-# ─── Мульти-панель (опционально) ───────────
-# Формат: имя_контейнера:URL,контейнер2:URL2
-# MULTI_PANELS=marzban-marzban-1:https://panel1.com,marzban2:https://panel2.com
-
-# ─── Язык ──────────────────────────────────
-# Поддерживается: ru, en, fa
+# Язык: ru или en
 LANGUAGE=ru
-
-# ─── Отладка ───────────────────────────────
-DRY_RUN=false   # Тестовый режим (без реальных банов)
-VERBOSE=false   # Подробное логирование
 ```
 
----
+## 📋 Команды
 
-## 📋 Команды бота
+| Команда | Описание |
+|---------|----------|
+| `/start` | Главное меню + выбор языка |
+| `/status` | Статус сервера |
+| `/banned` | Список забаненных |
+| `/unban <ip>` | Разбанить IP |
+| `/connections` | Активные соединения |
+| `/logs [n]` | Последние N логов |
+| `/backup` | Создать бэкап |
+| `/help` | Справка |
 
-| Команда | Описание | Пример |
-|---------|----------|--------|
-| `/start` | Главное меню с клавиатурой | — |
-| `/status` | Полный статус сервера | — |
-| `/security` | Меню безопасности | — |
-| `/users` | Список пользователей Marzban | — |
-| `/docker` | Docker контейнеры | — |
-| `/backup` | Создать бэкап Marzban | — |
-| `/banned` | Показать список забаненных | — |
-| `/unban` | Разбанить IP | `/unban 1.2.3.4` |
-| `/logs` | Посмотреть недавние логи | `/logs 50` |
-| `/connections` | Активные соединения | — |
-| `/reports` | Сгенерировать отчёты | — |
-| `/help` | Справка по командам | — |
-
----
-
-## 🎯 Как это работает
+## 🎯 Как работает
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    ВАШ СЕРВЕР                            │
-│                                                         │
-│  ┌──────────────┐    ┌──────────────┐                  │
-│  │   Marzban    │───▶│  Docker логи │                  │
-│  │   Панель     │    │  (stdout)    │                  │
-│  └──────────────┘    └──────┬───────┘                  │
-│                             │                           │
-│                    ┌────────▼────────┐                  │
-│                    │  SystemFlow     │                  │
-│                    │  Монитор бота   │                  │
-│                    │                 │                  │
-│                    │  • Парсит логи  │                  │
-│                    │  • Детектит 401 │                  │
-│                    │  • GeoIP поиск  │                  │
-│                    │  • Автобан      │                  │
-│                    │  • Проверка сист│                 │
-│                    └────────┬────────┘                  │
-│                             │                           │
-│                    ┌────────▼────────┐                  │
-│                    │   iptables      │                  │
-│                    │   DROP хакеру   │                  │
-│                    └─────────────────┘                  │
-└─────────────────────────┬───────────────────────────────┘
-                          │ Telegram API
-                          ▼
-              ┌───────────────────────┐
-              │   ВАШ TELEGRAM        │
-              │                       │
-              │  🔔 Атака обнаружена! │
-              │  🌐 IP: 2.26.125.109  │
-              │  🇮🇷 Иран, Тегеран    │
-              │                       │
-              │  [🚫 БАН] [🔍 Инфо]   │
-              └───────────────────────┘
+Marzban панель → Docker логи → SystemFlow монитор
+                                      │
+                            Обнаружил 401?
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                 ▼
+              GeoIP поиск       Автобан          Уведомление
+              Страна + ISP      iptables DROP    в Telegram
+                                                      │
+                                        [🚫 БАН] [🔍 Инфо] [⏳ Бан 1ч]
 ```
 
----
-
-## 📂 Структура проекта
+## 📂 Структура
 
 ```
 SystemFlow/
-├── 📄 bot.py                    # Главный файл бота
-├── 📄 config.py                 # Конфигурация + автообнаружение
-├── 📄 database.py               # Слой базы данных SQLite
-├── 📄 requirements.txt          # Python зависимости
-├── 📄 install.sh                # Универсальный установщик
-├── 📄 .env.example              # Шаблон конфигурации
-├── 📄 LICENSE                   # MIT Лицензия
-│
-├── 📁 monitors/
-│   ├── 📄 log_monitor.py        # Мониторинг Docker логов
-│   ├── 📄 system_monitor.py     # Мониторинг CPU/RAM/Диска
-│   └── 📄 docker_monitor.py     # Мониторинг статуса контейнеров
-│
-├── 📁 handlers/
-│   ├── 📄 admin.py              # Админ команды (/status и т.д.)
-│   ├── 📄 security.py           # Бан/разбан, автобан
-│   ├── 📄 users.py              # Управление пользователями Marzban
-│   └── 📄 reports.py            # Графики и генерация отчётов
-│
-└── 📁 utils/
-    └── 📄 __init__.py           # iptables, GeoIP, бэкапы, API
+├── bot.py              # Главный файл
+├── config.py           # Конфигурация
+├── database.py         # База данных SQLite
+├── i18n.py             # 🆕 Локализация RU/EN
+├── monitors/           # Мониторы логов, системы, Docker
+├── handlers/           # Хендлеры команд
+├── utils/              # Утилиты: iptables, GeoIP, бэкапы, API
+├── install.sh          # Установщик
+└── .env.example        # Шаблон конфига
 ```
-
----
 
 ## 🔧 Управление
 
 ```bash
-# Проверить статус
-systemctl status marzban-security-bot
-
-# Перезапустить бота
-systemctl restart marzban-security-bot
-
-# Посмотреть логи в реальном времени
-journalctl -u marzban-security-bot -f
-
-# Посмотреть логи за сегодня
-journalctl -u marzban-security-bot --since today --no-pager
-
-# Остановить бота
-systemctl stop marzban-security-bot
-
-# Обновить бота
-cd /opt/SystemFlow && git pull && systemctl restart marzban-security-bot
+systemctl status marzban-security-bot   # Статус
+systemctl restart marzban-security-bot  # Перезапуск
+journalctl -u marzban-security-bot -f   # Логи
 ```
-
----
-
-## 🛡️ Подробности функций безопасности
-
-### Алгоритм автобана
-1. Мониторинг Docker логов каждые 3 секунды
-2. Обнаружение ответов `401 Unauthorized` от API Marzban
-3. Отслеживание попыток по IP в 5-минутных окнах
-4. После 3 неудачных попыток → автоматический бан в iptables
-5. Отправка подтверждения всем админам
-6. Правила сохраняются и переживают перезагрузку
-
-### Интеграция GeoIP
-- Использует бесплатный `ip-api.com` (без API ключа)
-- Возвращает: страна, город, провайдер, ASN, координаты
-- Флаг emoji автоматически генерируется из кода страны
-- Кэшируется для минимизации вызовов API
-
-### Ограничение скорости
-- Опрос логов: настраивается (по умолчанию 3 сек)
-- Метрики системы: настраивается (по умолчанию 30 сек)
-- Статус Docker: каждые 30 сек
-- Очистка базы данных: автоматическая (30 дней)
-
----
-
-## 📊 Примеры уведомлений
-
-<details>
-<summary><b>Оповещение о неудачном входе</b></summary>
-
-```
-🚨 Попытка неудачного входа
-
-🌐 IP: 2.26.125.109 🇮🇷
-🌍 Страна: Иран - Тегеран
-🏢 Провайдер: Telecommunication Company
-🖥️ Панель: marzban-marzban-1
-🕐 Время: 2026-04-14T05:15:30
-
-⚠️ Попыток за последний час: 3
-
-[🚫 БАН 2.26.125.109] [🔍 Инфо] [⏳ Бан 1ч] [⏳ Бан 24ч]
-```
-</details>
-
-<details>
-<summary><b>Статус сервера</b></summary>
-
-```
-📊 Статус сервера
-
-🟢 CPU: 25.3%
-🟢 RAM: 45.2% (452.1 МБ / 961.5 МБ)
-💾 Диск: 62.1% (31.2 ГБ / 50.0 ГБ)
-🔌 Соединения: 234
-⏱️ Аптайм: 8д 19ч 15м
-
-🐳 Docker контейнеры:
-✅ marzban-marzban-1
-
-🛡️ Безопасность:
-🚫 Забаненные IP: 47
-🔐 Неудачных попыток сегодня: 156
-
-🔝 ТОП Процессы:
-• xray - CPU: 12.3%, RAM: 4.5%
-• python - CPU: 5.1%, RAM: 6.5%
-• dockerd - CPU: 2.0%, RAM: 2.1%
-```
-</details>
-
-<details>
-<summary><b>Оповещение о падении контейнера</b></summary>
-
-```
-🔴 Контейнер упал!
-
-🐳 Контейнер: marzban-marzban-1
-⚠️ Статус: ОСТАНОВЛЕН
-🕐 Время: 2026-04-14T12:30:00
-
-[🔄 Перезапуск]
-```
-</details>
-
----
-
-## 🌍 Поддерживаемые языки
-
-- 🇷🇺 **Русский** (по умолчанию)
-- 🇬🇧 **Английский** (установите `LANGUAGE=en`)
-- 🇮🇷 **Персидский/Фарси** (установите `LANGUAGE=fa`)
-
----
-
-## 🔌 Интеграция API
-
-### Marzban API
-SystemFlow использует REST API Marzban для:
-- Управление пользователями (список, отключение, сброс)
-- Системная статистика
-- Конфигурация inbound
-- Ссылки подписки
-
-Для включения всех функций установите API токен в `.env`:
-```env
-MARZBAN_API_TOKEN_MARZBAN_MARBAN_1=ваш_токен_здесь
-```
-
-### Внешние сервисы
-- **ip-api.com** — GeoIP определение (бесплатно, без ключа)
-- **iptables** — Блокировка IP (встроенный)
-- **Docker** — Управление контейнерами (обязателен)
-
----
-
-## 📝 Журнал изменений
-
-### v3.0.0 (2026-04-14)
-- 🎉 Первый релиз
-- 🔐 Мониторинг логов в реальном времени
-- 🚫 Автобан с inline-кнопками в Telegram
-- 📊 Мониторинг системы
-- 🐳 Мониторинг Docker контейнеров
-- 👥 Управление пользователями Marzban
-- 📈 Графики и отчёты
-- 💾 Функционал бэкапов
-- 🌍 GeoIP + WHOIS
-- 📋 Аудит-логирование
-- 🔧 Универсальный установщик
-
----
-
-## 🤝 Контрибьюция
-
-Контрибьюции приветствуются! Не стесняйтесь отправлять Pull Request.
-
-1. Форкните репозиторий
-2. Создайте ветку фичи (`git checkout -b feature/потрясающая-фича`)
-3. Закоммитьте изменения (`git commit -m 'Добавить потрясающую фичу'`)
-4. Пушните в ветку (`git push origin feature/потрясающая-фича`)
-5. Откройте Pull Request
-
----
 
 ## 📄 Лицензия
 
-Этот проект лицензирован по **MIT Лицензии** — смотрите файл [LICENSE](LICENSE) для подробностей.
-
----
-
-## 🙏 Благодарности
-
-- **[aiogram](https://github.com/aiogram/aiogram)** — Telegram Bot фреймворк
-- **[Marzban](https://github.com/Gozargah/Marzban)** — Управление подписками
-- **[psutil](https://github.com/giampaolo/psutil)** — Мониторинг системы
-- **[matplotlib](https://matplotlib.org/)** — Генерация графиков
-- **[ip-api.com](https://ip-api.com/)** — GeoIP сервис
-
----
-
-## 💬 Поддержка
-
-- 🐛 **Баг-репорты**: [GitHub Issues](https://github.com/R3G1ST/SystemFlow/issues)
-- 💡 **Предложения фич**: [GitHub Discussions](https://github.com/R3G1ST/SystemFlow/discussions)
-- 📧 **Контакт**: [R3G1ST](https://github.com/R3G1ST)
+MIT — используйте свободно!
 
 ---
 
 <div align="center">
 
-**Сделано с ❤️ для безопасности вашего сервера**
+# 🇬🇧 English
 
-[⭐ Поставьте звезду этому репозиторию](https://github.com/R3G1ST/SystemFlow) если он вам полезен!
+</div>
+
+## ✨ Features
+
+### 🔐 Security
+- **Real-time log monitoring**
+- **Instant notifications** on failed login (401)
+- **One-click IP ban** from notification
+- **AutoBan** after N failed attempts
+- **GeoIP** — country, city, ISP with flag 🇷🇺🇮🇷🇺🇸
+- **WHOIS** IP information
+- **Temporary bans** — 1h, 24h or permanent
+
+### 📊 System Monitoring
+- CPU, RAM, Disk usage
+- Active connections
+- Network traffic
+- Top processes
+- Server uptime
+- **Alerts** when thresholds exceeded
+
+### 🐳 Docker
+- Container status
+- Container resources
+- Crash/restart notifications
+- Remote restart from bot
+
+### 💬 Telegram
+- **Reply keyboards** — all commands as buttons
+- **Inline buttons** — for actions (ban, info)
+- **Two languages** — 🇷🇺 Russian and 🇬🇧 English
+- **Language selection** on first launch
+
+### 📈 Reports & Backups
+- CPU/RAM/attack charts
+- Daily reports
+- One-click backup
+- File delivery to chat
+
+## 🚀 Installation
+
+### One-line install:
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/R3G1ST/SystemFlow/main/install.sh)
+```
+
+### Manual:
+
+```bash
+cd /opt && git clone https://github.com/R3G1ST/SystemFlow.git
+cd SystemFlow && bash install.sh
+```
+
+### Configure .env
+
+```env
+# Bot token from @BotFather
+BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+
+# Your Telegram ID (from @userinfobot)
+ADMIN_USER_IDS=123456789
+
+# Language: ru or en
+LANGUAGE=en
+```
+
+## 📋 Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Main menu + language selection |
+| `/status` | Server status |
+| `/banned` | Banned IPs list |
+| `/unban <ip>` | Unban an IP |
+| `/connections` | Active connections |
+| `/logs [n]` | Last N log lines |
+| `/backup` | Create backup |
+| `/help` | Help |
+
+## 🎯 How it works
+
+```
+Marzban panel → Docker logs → SystemFlow monitor
+                                      │
+                            Detected 401?
+                                      │
+                    ┌─────────────────┼─────────────────┐
+                    ▼                 ▼                 ▼
+              GeoIP lookup       AutoBan         Notification
+              Country + ISP      iptables DROP   to Telegram
+                                                      │
+                                        [🚫 BAN] [🔍 Info] [⏳ Ban 1h]
+```
+
+## 📂 Structure
+
+```
+SystemFlow/
+├── bot.py              # Main entry point
+├── config.py           # Configuration
+├── database.py         # SQLite database
+├── i18n.py             # 🆕 Localization RU/EN
+├── monitors/           # Log, system, Docker monitors
+├── handlers/           # Command handlers
+├── utils/              # Utils: iptables, GeoIP, backup, API
+├── install.sh          # Installer
+└── .env.example        # Config template
+```
+
+## 🔧 Management
+
+```bash
+systemctl status marzban-security-bot   # Status
+systemctl restart marzban-security-bot  # Restart
+journalctl -u marzban-security-bot -f   # Logs
+```
+
+## 📄 License
+
+MIT — use freely!
+
+---
+
+<div align="center">
+
+**🇷🇺 Сделано с ❤️ для безопасности вашего сервера**
+
+**🇬🇧 Made with ❤️ for your server security**
+
+[⭐ Star this repo](https://github.com/R3G1ST/SystemFlow) if you find it useful!
 
 </div>

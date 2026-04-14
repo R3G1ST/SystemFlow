@@ -1,321 +1,531 @@
 #!/usr/bin/env python3
 """
-Marzban Security Bot v3 - Главный файл
-Универсальный бот для мониторинга и управления Marzban
+SystemFlow v3 — Telegram Bot для мониторинга Marzban
+С reply-клавиатурами и полной локализацией RU/EN
 """
 import asyncio
 import logging
+import os
+import json
+from datetime import datetime
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 from config import Config, PANELS
 from database import Database
+from i18n import i18n
 from monitors.log_monitor import MultiPanelLogMonitor
 from monitors.system_monitor import SystemMonitor
 from monitors.docker_monitor import DockerMonitor
-from handlers.admin import AdminHandler
-from handlers.security import SecurityHandler
-from handlers.users import UsersHandler
-from handlers.reports import ReportGenerator
-from utils import GeoIPLookup
+from utils import IptablesManager, GeoIPLookup, BackupManager
 
-# Логирование
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+VERSION = "3.0.0"
+LAST_UPDATE = "2026-04-14"
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
 class MarzbanBot:
-    """Основной класс бота"""
-
     def __init__(self):
-        # Проверка токена
         if not Config.BOT_TOKEN or Config.BOT_TOKEN == "your_bot_token_here":
-            print("❌ ОШИБКА: Не задан BOT_TOKEN в .env файле!")
-            print("📝 Скопируйте .env.example в .env и настройте токен")
+            print("❌ BOT_TOKEN not set in .env!")
             exit(1)
 
-        # Инициализация компонентов
-        self.bot = Bot(
-            token=Config.BOT_TOKEN,
-            default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
-        )
+        self.bot = Bot(token=Config.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
         self.dp = Dispatcher()
-
         self.db = Database()
         self.sys_monitor = SystemMonitor(check_interval=Config.SYSTEM_CHECK_INTERVAL)
-        self.docker_monitor = DockerMonitor(
-            check_interval=30,
-            monitored_containers=[p["container"] for p in PANELS]
-        )
+        self.docker_monitor = DockerMonitor(check_interval=30, monitored_containers=[p["container"] for p in PANELS])
         self.log_monitor = MultiPanelLogMonitor()
-        self.report_gen = ReportGenerator(self.db)
-
-        # Хендлеры
-        self.admin_handler = AdminHandler(self.bot, self.db, self.sys_monitor, self.docker_monitor)
-        self.security_handler = SecurityHandler(self.bot, self.db)
-        self.users_handler = UsersHandler(self.bot, self.db)
-
-        # Счётчик попыток для автобана
         self._pending_bans = {}
 
-    def setup_callbacks(self):
-        """Настройка callback-ов мониторинга"""
+    # ===== КЛАВИАТУРЫ =====
 
-        # === Лог-монитор ===
-        for panel in PANELS:
-            monitor = self.log_monitor.add_panel(
-                panel["container"],
-                panel["name"],
-                Config.MONITOR_INTERVAL
+    def _get_main_kb(self, lang: str = "ru") -> ReplyKeyboardMarkup:
+        """Reply клавиатура — главное меню"""
+        g = lambda k: i18n.get(k)  # для краткости в текущем языке
+        # Но нужно с учётом языка пользователя, пока используем дефолт
+        buttons = [
+            [KeyboardButton(text=i18n.get("btn_status")), KeyboardButton(text=i18n.get("btn_security"))],
+            [KeyboardButton(text=i18n.get("btn_users")), KeyboardButton(text=i18n.get("btn_docker"))],
+            [KeyboardButton(text=i18n.get("btn_backup")), KeyboardButton(text=i18n.get("btn_reports"))],
+            [KeyboardButton(text=i18n.get("btn_banned")), KeyboardButton(text=i18n.get("btn_connections"))],
+            [KeyboardButton(text=i18n.get("btn_logs")), KeyboardButton(text=i18n.get("btn_settings"))],
+            [KeyboardButton(text=i18n.get("btn_help"))],
+        ]
+        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    def _get_lang_kb(self) -> InlineKeyboardMarkup:
+        """Inline клавиатура выбора языка"""
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
+            [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
+        ])
+
+    def _get_security_kb(self) -> ReplyKeyboardMarkup:
+        """Reply клавиатура — безопасность"""
+        buttons = [
+            [KeyboardButton(text=i18n.get("btn_banned")), KeyboardButton(text=i18n.get("btn_connections"))],
+            [KeyboardButton(text=i18n.get("btn_logs")), KeyboardButton(text="🔍 Top Attackers")],
+            [KeyboardButton(text="↩️ " + i18n.get("btn_status"))],
+        ]
+        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    def _get_docker_kb(self) -> ReplyKeyboardMarkup:
+        """Reply клавиатура — docker"""
+        buttons = [
+            [KeyboardButton(text="📊 Containers"), KeyboardButton(text="📝 Logs")],
+            [KeyboardButton(text="↩️ " + i18n.get("btn_status"))],
+        ]
+        return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    def _get_attack_action_kb(self, ip: str) -> InlineKeyboardMarkup:
+        """Inline кнопки для уведомлений об атаках"""
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text=f"🚫 {i18n.get('btn_ban_ip')} {ip}", callback_data=f"ban_ip:{ip}"),
+                InlineKeyboardButton(text=f"🔍 {i18n.get('btn_ip_info')}", callback_data=f"ip_info:{ip}"),
+            ],
+            [
+                InlineKeyboardButton(text=i18n.get("btn_ban_1h"), callback_data=f"ban_temp:{ip}:3600"),
+                InlineKeyboardButton(text=i18n.get("btn_ban_24h"), callback_data=f"ban_temp:{ip}:86400"),
+            ],
+            [
+                InlineKeyboardButton(text=i18n.get("btn_whois"), callback_data=f"whois:{ip}"),
+            ],
+        ])
+
+    # ===== ХЕНДЛЕРЫ КОМАНД =====
+
+    async def cmd_start(self, message: types.Message):
+        uid = message.from_user.id
+        if uid not in Config.ADMIN_USER_IDS:
+            await message.answer(i18n.get("no_access", uid))
+            return
+
+        settings = self.db.get_user_settings(uid)
+        lang = settings.get("language", "ru") if settings else "ru"
+        i18n.set_user_lang(uid, lang)
+
+        text = (
+            f"{i18n.get('welcome_title', uid, name=message.from_user.first_name)}\n\n"
+            f"{i18n.get('welcome_subtitle', uid)}\n\n"
+            f"{i18n.get('welcome_features', uid)}"
+        )
+        await message.answer(text, parse_mode="Markdown", reply_markup=self._get_lang_kb())
+
+    async def cmd_status(self, message: types.Message):
+        await self._send_status(message, message.from_user.id)
+
+    async def cmd_help(self, message: types.Message):
+        uid = message.from_user.id
+        text = f"{i18n.get('help_title', uid)}\n\n{i18n.get('help_text', uid)}"
+        await message.answer(text, parse_mode="Markdown", reply_markup=self._get_main_kb(i18n.get_user_lang(uid)))
+
+    async def cmd_banned(self, message: types.Message):
+        uid = message.from_user.id
+        banned = self.db.get_banned_ips(limit=20)
+        total = self.db.get_banned_count()
+        if not banned:
+            await message.answer(i18n.get("banned_list_empty", uid))
+            return
+        text = f"🚫 **{i18n.get('banned_list_title', uid)}** ({total})\n\n"
+        for i, b in enumerate(banned, 1):
+            geo = GeoIPLookup.lookup(b["ip"])
+            flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
+            text += f"{i}. `{b['ip']}` {flag} — {geo.get('country', '?')}\n   📅 {b['banned_at']}\n\n"
+        await message.answer(text, parse_mode="Markdown")
+
+    async def cmd_unban(self, message: types.Message):
+        uid = message.from_user.id
+        parts = message.text.split()
+        if len(parts) < 2:
+            await message.answer(i18n.get("unban_command", uid), parse_mode="Markdown")
+            return
+        ip = parts[1]
+        IptablesManager.unban_ip(ip)
+        self.db.unban_ip(ip, unbanned_by=str(uid))
+        IptablesManager.save_rules()
+        self.db.log_action(uid, "unban_ip", f"Unbanned {ip}")
+        await message.answer(i18n.get("unban_ip_success", uid, ip=ip), parse_mode="Markdown")
+
+    async def cmd_connections(self, message: types.Message):
+        uid = message.from_user.id
+        import subprocess
+        try:
+            result = subprocess.run(
+                "ss -tn state established | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -20",
+                shell=True, capture_output=True, text=True, timeout=10
             )
+            text = f"🔌 **{i18n.get('connections_title', uid)}**\n\n"
+            if result.stdout.strip():
+                for line in result.stdout.strip().split("\n")[:20]:
+                    parts = line.strip().split()
+                    if len(parts) >= 2:
+                        count, ip = parts[0], parts[1]
+                        geo = GeoIPLookup.lookup(ip)
+                        flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
+                        text += f"`{ip}` {flag} — **{count}**\n"
+            else:
+                text += "—"
+            await message.answer(text, parse_mode="Markdown")
+        except Exception as e:
+            await message.answer(f"❌ {e}")
 
-            # 401 Unauthorized
-            monitor.on("login_401", self._on_login_401)
-            # Успешный вход
-            monitor.on("login_200", self._on_login_200)
+    async def cmd_logs(self, message: types.Message):
+        uid = message.from_user.id
+        parts = message.text.split()
+        lines = min(int(parts[1]) if len(parts) > 1 else 50, 200)
+        import subprocess
+        try:
+            result = subprocess.run(["docker", "logs", "--tail", str(lines), "marzban-marzban-1"],
+                                    capture_output=True, text=True, timeout=10)
+            logs = (result.stdout + result.stderr).strip()
+            if logs:
+                if len(logs) > 4000:
+                    logs = "...\n" + logs[-4000:]
+                await message.answer(f"📝 {i18n.get('logs_title', uid, lines=lines)}\n\n```\n{logs}\n```", parse_mode="Markdown")
+            else:
+                await message.answer(i18n.get("logs_empty", uid))
+        except Exception as e:
+            await message.answer(f"❌ {e}")
 
-        # === Системный монитор ===
+    async def cmd_backup(self, message: types.Message):
+        uid = message.from_user.id
+        await message.answer(i18n.get("backup_creating", uid))
+        backup_file = BackupManager.create_backup()
+        if backup_file:
+            size = os.path.getsize(backup_file)
+            size_h = BackupManager._format_size(size)
+            self.db.log_action(uid, "backup", f"Created: {backup_file}")
+            await message.answer(i18n.get("backup_success", uid, path=backup_file, size=size_h), parse_mode="Markdown")
+            if size < 50 * 1024 * 1024:
+                with open(backup_file, "rb") as f:
+                    await message.answer_document(f, caption=f"📦 Marzban Backup\n📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+            else:
+                await message.answer(i18n.get("backup_too_large", uid))
+        else:
+            await message.answer(i18n.get("backup_failed", uid))
+
+    # ===== ОБРАБОТКА TEXT СООБЩЕНИЙ (reply кнопки) =====
+
+    async def handle_text(self, message: types.Message):
+        uid = message.from_user.id
+        text = message.text.strip()
+
+        # Маршрутизация по тексту reply-кнопок
+        if text == i18n.get("btn_status"):
+            await self.cmd_status(message)
+        elif text == i18n.get("btn_security"):
+            await message.answer(f"🔒 {i18n.get('security_menu_title', uid)}", parse_mode="Markdown",
+                                 reply_markup=self._get_security_kb())
+        elif text == i18n.get("btn_banned"):
+            await self.cmd_banned(message)
+        elif text == i18n.get("btn_connections"):
+            await self.cmd_connections(message)
+        elif text == i18n.get("btn_logs"):
+            await message.answer("📝 Отправьте `/logs 50`", parse_mode="Markdown")
+        elif text == i18n.get("btn_users"):
+            await message.answer("👥 Команда `/users` (нужен API токен)", parse_mode="Markdown")
+        elif text == i18n.get("btn_docker"):
+            await message.answer(f"🐳 {i18n.get('cmd_docker_title', uid)}", parse_mode="Markdown",
+                                 reply_markup=self._get_docker_kb())
+        elif text == i18n.get("btn_backup"):
+            await self.cmd_backup(message)
+        elif text == i18n.get("btn_reports"):
+            await message.answer("📈 Отчёты в разработке", parse_mode="Markdown")
+        elif text == i18n.get("btn_settings"):
+            await self._show_settings(message)
+        elif text == i18n.get("btn_help"):
+            await self.cmd_help(message)
+        else:
+            await message.answer(i18n.get("unknown_command", uid), reply_markup=self._get_main_kb(i18n.get_user_lang(uid)))
+
+    async def _show_settings(self, message: types.Message):
+        uid = message.from_user.id
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru"),
+             InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
+            [InlineKeyboardButton(text=f"🚫 Автобан: {'ON' if Config.AUTOBAN_ENABLED else 'OFF'}", callback_data="noop")],
+        ])
+        await message.answer(f"⚙️ {i18n.get('settings_title', uid)}", reply_markup=kb)
+
+    # ===== CALLBACK HANDLER =====
+
+    async def handle_callback(self, callback: types.CallbackQuery):
+        uid = callback.from_user.id
+        data = callback.data
+
+        if uid not in Config.ADMIN_USER_IDS:
+            await callback.answer(i18n.get("no_access", uid), show_alert=True)
+            return
+
+        try:
+            if data.startswith("lang:"):
+                lang = data.split(":")[1]
+                i18n.set_user_lang(uid, lang)
+                self.db.save_user_settings(uid, callback.from_user.username, lang)
+                await callback.answer(i18n.get("language_set", uid))
+                await callback.message.edit_text(i18n.get("language_set", uid), reply_markup=self._get_main_kb(lang))
+
+            elif data.startswith("ban_ip:"):
+                ip = data.split(":", 1)[1]
+                await self._ban_ip(callback, ip, uid, "permanent")
+
+            elif data.startswith("ban_temp:"):
+                parts = data.split(":")
+                ip, secs = parts[1], parts[2]
+                await self._ban_ip(callback, ip, uid, f"temporary_{secs}s")
+
+            elif data.startswith("ip_info:"):
+                ip = data.split(":", 1)[1]
+                await self._show_ip_info(callback, ip)
+
+            elif data.startswith("whois:"):
+                ip = data.split(":", 1)[1]
+                await self._show_whois(callback, ip)
+
+            elif data == "noop":
+                await callback.answer()
+
+            else:
+                await callback.answer(f"❓ {data[:30]}")
+
+        except Exception as e:
+            logger.error(f"Callback error: {e}")
+            await callback.answer(i18n.get("error", uid), show_alert=True)
+
+    async def _ban_ip(self, callback, ip, uid, ban_type):
+        if self.db.is_banned(ip):
+            await callback.answer(i18n.get("ip_already_banned", uid, ip=ip), show_alert=True)
+            return
+        if IptablesManager.ban_ip(ip):
+            self.db.ban_ip(ip, reason="Manual ban via bot", banned_by=str(uid))
+            IptablesManager.save_rules()
+            self.db.log_action(uid, "ban_ip", f"Banned {ip} ({ban_type})")
+            await callback.answer(i18n.get("ban_ip_success", uid, ip=ip), show_alert=True)
+        else:
+            await callback.answer(i18n.get("error", uid), show_alert=True)
+
+    async def _show_ip_info(self, callback, ip):
+        geo = GeoIPLookup.lookup(ip)
+        flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
+        uid = callback.from_user.id
+        text = (
+            f"🔍 **IP Information**\n\n"
+            f"🌐 IP: `{ip}` {flag}\n"
+            f"🌍 {geo['country']} — {geo['city']}\n"
+            f"🏢 {geo['isp']}\n"
+            f"🔌 {geo['as']}\n\n"
+            f"🚫 Banned: **{'Да' if self.db.is_banned(ip) else 'Нет'}**"
+        )
+        await callback.message.answer(text, parse_mode="Markdown")
+        await callback.answer()
+
+    async def _show_whois(self, callback, ip):
+        import subprocess
+        await callback.answer("⏳ WHOIS...", show_alert=False)
+        try:
+            result = subprocess.run(["whois", ip], capture_output=True, text=True, timeout=10)
+            lines = result.stdout.split("\n")
+            short = [l for l in lines if any(l.lower().startswith(k) for k in ["inetnum", "netname", "descr", "country", "org", "abuse"])]
+            text = f"🌐 **WHOIS {ip}**\n\n" + "\n".join(short[:15])
+        except:
+            text = f"❌ WHOIS error for {ip}"
+        await callback.message.answer(text, parse_mode="Markdown")
+        await callback.answer()
+
+    # ===== МОНИТОРИНГ CALLBACKS =====
+
+    def setup_callbacks(self):
+        for panel in PANELS:
+            mon = self.log_monitor.add_panel(panel["container"], panel["name"], Config.MONITOR_INTERVAL)
+            mon.on("login_401", self._on_401)
+            mon.on("login_200", self._on_200)
         if Config.NOTIFY_ON_HIGH_CPU:
             self.sys_monitor.on("high_cpu", self._on_high_cpu)
         if Config.NOTIFY_ON_HIGH_RAM:
             self.sys_monitor.on("high_ram", self._on_high_ram)
-        if Config.NOTIFY_ON_HIGH_CPU:
-            self.sys_monitor.on("high_connections", self._on_high_connections)
-
-        # === Docker монитор ===
+        self.sys_monitor.on("high_connections", self._on_high_conn)
         self.docker_monitor.on("container_down", self._on_container_down)
-        self.docker_monitor.on("container_restart", self._on_container_restart)
+        self.docker_monitor.on("container_restart", self._on_container_up)
 
-    async def _on_login_401(self, data: dict):
-        """Обработка попытки входа"""
-        ip = data["ip"]
-        panel = data["panel"]
+    async def _notify_all(self, text, kb=None):
+        for aid in Config.ADMIN_USER_IDS:
+            try:
+                await self.bot.send_message(aid, text, reply_markup=kb, parse_mode="Markdown")
+            except:
+                pass
 
-        # Логируем в БД
+    async def _on_401(self, data):
+        ip, panel = data["ip"], data["panel"]
         geo = GeoIPLookup.lookup(ip)
-        self.db.log_login_attempt(
-            ip, success=False, status_code=401,
-            panel_name=panel, country=geo.get("country")
-        )
-
-        # Проверяем автобан
+        self.db.log_login_attempt(ip, False, 401, panel_name=panel, country=geo.get("country"))
         if Config.AUTOBAN_ENABLED:
             attempts = self.db.get_recent_attempts(ip, Config.BAN_TIME_WINDOW // 60)
             if attempts >= Config.MAX_LOGIN_ATTEMPTS and ip not in self._pending_bans:
                 self._pending_bans[ip] = True
-                await self._auto_ban_ip(ip, panel)
-
-        # Отправляем уведомление
+                IptablesManager.ban_ip(ip)
+                self.db.ban_ip(ip, f"Autoban: {attempts} attempts", "autoban")
+                IptablesManager.save_rules()
+                if Config.NOTIFY_ON_BAN:
+                    await self._notify_all(f"🚫 **AUTOBAN**: `{ip}`")
+                if ip in self._pending_bans:
+                    del self._pending_bans[ip]
         if Config.NOTIFY_ON_401:
             flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
-            text = (
-                f"🚨 **Failed Login Attempt**\n\n"
-                f"🌐 IP: `{ip}` {flag}\n"
-                f"🌍 Country: {geo['country']} - {geo['city']}\n"
-                f"🏢 ISP: {geo['isp']}\n"
-                f"🖥️ Panel: {panel}\n"
-                f"🕐 Time: {data['timestamp']}\n\n"
-                f"⚠️ Попыток за последний час: **{self.db.get_recent_attempts(ip, 60)}**"
-            )
+            text = i18n.get("attack_notification", None,
+                           ip=ip, flag=flag, country=geo['country'], city=geo['city'],
+                           isp=geo['isp'], panel=panel, time=data['timestamp'],
+                           attempts=self.db.get_recent_attempts(ip, 60))
+            await self._notify_all(text, self._get_attack_action_kb(ip))
 
-            keyboard = self.security_handler.get_attack_keyboard(ip)
-
-            for admin_id in Config.ADMIN_USER_IDS:
-                try:
-                    await self.bot.send_message(admin_id, text, reply_markup=keyboard)
-                except Exception as e:
-                    logger.error(f"Failed to send notification to {admin_id}: {e}")
-
-    async def _on_login_200(self, data: dict):
-        """Успешный вход"""
-        ip = data["ip"]
-        panel = data["panel"]
-
-        self.db.log_login_attempt(ip, success=True, status_code=200, panel_name=panel)
-
-        # Проверяем, не с нового ли IP
+    async def _on_200(self, data):
+        ip, panel = data["ip"], data["panel"]
+        self.db.log_login_attempt(ip, True, 200, panel_name=panel)
         geo = GeoIPLookup.lookup(ip)
         flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
+        text = i18n.get("successful_login", None, ip=ip, flag=flag, country=geo['country'], panel=panel)
+        await self._notify_all(text)
 
+    async def _on_high_cpu(self, data):
+        await self._notify_all(i18n.get("high_cpu_alert", None, cpu=data['cpu'], threshold=data['threshold']))
+
+    async def _on_high_ram(self, data):
+        await self._notify_all(i18n.get("high_ram_alert", None, ram=data['ram'], threshold=data['threshold']))
+
+    async def _on_high_conn(self, data):
+        await self._notify_all(i18n.get("high_connections_alert", None, connections=data['connections'], threshold=data['threshold']))
+
+    async def _on_container_down(self, data):
+        await self._notify_all(i18n.get("container_down", None, name=data['name'], time=data['timestamp']),
+                               InlineKeyboardMarkup(inline_keyboard=[[
+                                   InlineKeyboardButton(text=i18n.get("btn_restart_container"), callback_data=f"docker_restart:{data['name']}")
+                               ]]))
+
+    async def _on_container_up(self, data):
+        await self._notify_all(i18n.get("container_restart", None, name=data['name']))
+
+    # ===== STATUS =====
+
+    async def _send_status(self, target, uid):
+        s = self.sys_monitor.get_full_status()
+        containers = self.docker_monitor.get_containers_status()
+        cpu, ram, disk = s["cpu"], s["ram"]["percent"], s["disk"]["percent"]
+        cpu_i = "🔴" if cpu > 80 else "🟡" if cpu > 50 else "🟢"
+        ram_i = "🔴" if ram > 80 else "🟡" if ram > 50 else "🟢"
         text = (
-            f"✅ **Successful Login**\n\n"
-            f"🌐 IP: `{ip}` {flag}\n"
-            f"🌍 Country: {geo['country']}\n"
-            f"🖥️ Panel: {panel}\n"
+            f"📊 **{i18n.get('server_status', uid)}**\n\n"
+            f"{cpu_i} CPU: {cpu}%\n"
+            f"{ram_i} RAM: {ram}% ({self._fmt(s['ram']['used'])} / {self._fmt(s['ram']['total'])})\n"
+            f"💾 Disk: {s['disk']['percent']}% ({self._fmt(s['disk']['used'])} / {self._fmt(s['disk']['total'])})\n"
+            f"🔌 {i18n.get('connections', uid)}: {s['connections']}\n"
+            f"⏱️ {i18n.get('uptime', uid)}: {s['uptime']}\n\n"
+            f"🐳 **{i18n.get('docker_containers', uid)}**\n"
         )
+        for c in containers[:5]:
+            text += f"{'✅' if c['running'] else '❌'} `{c['name']}`\n"
+        text += f"\n🛡️ **{i18n.get('security_info', uid)}**\n"
+        text += f"🚫 {i18n.get('banned_ips', uid)}: {self.db.get_banned_count()}\n"
+        text += f"🔐 {i18n.get('failed_today', uid)}: {self.db.get_attempts_today()}\n"
+        if s.get("top_processes"):
+            text += f"\n🔝 **{i18n.get('top_processes', uid)}**\n"
+            for p in s["top_processes"][:3]:
+                text += f"• `{p['name']}` — CPU: {p['cpu']}%, RAM: {p['mem']:.1f}%\n"
+        kb = self._get_main_kb(i18n.get_user_lang(uid))
+        await target.answer(text, parse_mode="Markdown", reply_markup=kb)
 
-        for admin_id in Config.ADMIN_USER_IDS:
-            try:
-                await self.bot.send_message(admin_id, text)
-            except:
-                pass
+    @staticmethod
+    def _fmt(b):
+        for u in ["B", "KB", "MB", "GB"]:
+            if b < 1024: return f"{b:.1f} {u}"
+            b /= 1024
+        return f"{b:.1f} TB"
 
-    async def _auto_ban_ip(self, ip: str, panel: str):
-        """Автоматический бан IP"""
-        from utils import IptablesManager
-
-        if Config.DRY_RUN:
-            logger.info(f"[DRY RUN] Would ban {ip}")
-            return
-
-        IptablesManager.ban_ip(ip)
-        self.db.ban_ip(ip, reason=f"Autoban: {self.db.get_recent_attempts(ip, 5)} attempts", banned_by="autoban")
-        IptablesManager.save_rules()
-
-        logger.info(f"[AUTOBAN] Banned {ip}")
-
-        if Config.NOTIFY_ON_BAN:
-            text = f"🚫 **AUTOBAN**: `{ip}` заблокирован автоматически"
-            for admin_id in Config.ADMIN_USER_IDS:
-                try:
-                    await self.bot.send_message(admin_id, text)
-                except:
-                    pass
-
-        # Сбрасываем pending
-        if ip in self._pending_bans:
-            del self._pending_bans[ip]
-
-    async def _on_high_cpu(self, data: dict):
-        """Высокая нагрузка CPU"""
-        text = (
-            f"⚠️ **High CPU Usage**\n\n"
-            f"🔴 CPU: **{data['cpu']}%**\n"
-            f"📊 Threshold: {data['threshold']}%\n"
-        )
-        for admin_id in Config.ADMIN_USER_IDS:
-            try:
-                await self.bot.send_message(admin_id, text)
-            except:
-                pass
-
-    async def _on_high_ram(self, data: dict):
-        """Высокая нагрузка RAM"""
-        text = (
-            f"⚠️ **High RAM Usage**\n\n"
-            f"🔴 RAM: **{data['ram']}%**\n"
-            f"📊 Threshold: {data['threshold']}%\n"
-        )
-        for admin_id in Config.ADMIN_USER_IDS:
-            try:
-                await self.bot.send_message(admin_id, text)
-            except:
-                pass
-
-    async def _on_high_connections(self, data: dict):
-        """Много соединений"""
-        text = (
-            f"⚠️ **High Connections Count**\n\n"
-            f"🔌 Connections: **{data['connections']}**\n"
-            f"📊 Threshold: {data['threshold']}\n"
-            f"🚨 Possible DDoS attack!\n"
-        )
-        for admin_id in Config.ADMIN_USER_IDS:
-            try:
-                await self.bot.send_message(admin_id, text)
-            except:
-                pass
-
-    async def _on_container_down(self, data: dict):
-        """Контейнер упал"""
-        text = (
-            f"🔴 **Container Down!**\n\n"
-            f"🐳 Container: `{data['name']}`\n"
-            f"⚠️ Status: STOPPED\n"
-            f"🕐 Time: {data['timestamp']}\n"
-        )
-        for admin_id in Config.ADMIN_USER_IDS:
-            try:
-                keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text="🔄 Restart", callback_data=f"docker_restart:{data['name']}")]
-                ])
-                await self.bot.send_message(admin_id, text, reply_markup=keyboard)
-            except:
-                pass
-
-    async def _on_container_restart(self, data: dict):
-        """Контейнер перезапустился"""
-        text = (
-            f"🔄 **Container Restarted**\n\n"
-            f"🐳 Container: `{data['name']}`\n"
-            f"✅ Status: RUNNING\n"
-        )
-        for admin_id in Config.ADMIN_USER_IDS:
-            try:
-                await self.bot.send_message(admin_id, text)
-            except:
-                pass
+    # ===== ЗАПУСК =====
 
     def setup_handlers(self):
-        """Настройка хендлеров команд"""
+        self.dp.message.register(self.cmd_start, Command("start"))
+        self.dp.message.register(self.cmd_status, Command("status"))
+        self.dp.message.register(self.cmd_help, Command("help"))
+        self.dp.message.register(self.cmd_banned, Command("banned"))
+        self.dp.message.register(self.cmd_unban, Command("unban"))
+        self.dp.message.register(self.cmd_connections, Command("connections"))
+        self.dp.message.register(self.cmd_logs, Command("logs"))
+        self.dp.message.register(self.cmd_backup, Command("backup"))
+        self.dp.message.register(self.handle_text)  # reply buttons — последний
+        self.dp.callback_query.register(self.handle_callback)
 
-        # Команды
-        self.dp.message.register(self.admin_handler.cmd_start, Command("start"))
-        self.dp.message.register(self.admin_handler.cmd_status, Command("status"))
-        self.dp.message.register(self.admin_handler.cmd_help, Command("help"))
-        self.dp.message.register(self.admin_handler.cmd_banned, Command("banned"))
-        self.dp.message.register(self.admin_handler.cmd_unban, Command("unban"))
-        self.dp.message.register(self.admin_handler.cmd_connections, Command("connections"))
-        self.dp.message.register(self.admin_handler.cmd_logs, Command("logs"))
-        self.dp.message.register(self.admin_handler.cmd_backup, Command("backup"))
-        self.dp.message.register(self.users_handler.cmd_users, Command("users"))
-
-        # Callback queries — ловим ВСЕ callback
-        from aiogram.types import CallbackQuery
-        self.dp.callback_query.register(self.security_handler.handle_callback)
-
-    async def periodic_tasks(self):
-        """Периодические задачи"""
+    async def periodic(self):
         while True:
             try:
-                # Сохраняем метрики
-                metrics = self.sys_monitor.get_full_status()
-                self.db.save_metrics(
-                    metrics["cpu"],
-                    metrics["ram"]["percent"],
-                    metrics["disk"]["percent"],
-                    metrics["connections"],
-                    metrics["network"]["bytes_recv"],
-                    metrics["network"]["bytes_sent"],
-                )
-
-                # Очистка старых данных
+                m = self.sys_monitor.get_full_status()
+                self.db.save_metrics(m["cpu"], m["ram"]["percent"], m["disk"]["percent"],
+                                     m["connections"], m["network"]["bytes_recv"], m["network"]["bytes_sent"])
                 self.db.cleanup_old_data()
-
             except Exception as e:
-                logger.error(f"Periodic task error: {e}")
-
+                logger.error(f"Periodic error: {e}")
             await asyncio.sleep(Config.SYSTEM_CHECK_INTERVAL)
 
+    async def send_startup_notification(self):
+        """Отправить уведомление о запуске бота"""
+        # Проверяем, это первый запуск или перезапуск
+        state_file = "/opt/marzban-security-bot/.last_start"
+        is_update = os.path.exists(state_file)
+        last_version = ""
+        if is_update:
+            try:
+                with open(state_file) as f:
+                    last_version = f.read().strip()
+            except:
+                pass
+
+        panels = ", ".join([p["name"] for p in PANELS])
+        lang = Config.LANGUAGE
+        autoban = "ON" if Config.AUTOBAN_ENABLED else "OFF"
+
+        if is_update and last_version != VERSION:
+            # Это обновление
+            changelog = "• Исправлены callback-кнопки\n• Добавлена reply-клавиатура\n• Полная локализация RU/EN\n• Уведомления о рестарте"
+            text = i18n.get("bot_updated", None, version=VERSION, changelog=changelog)
+        else:
+            # Обычный рестарт
+            text = i18n.get("bot_restarted", None, version=VERSION, panels=panels,
+                           admins=len(Config.ADMIN_USER_IDS), autoban=autoban, language=lang.upper())
+
+        for aid in Config.ADMIN_USER_IDS:
+            try:
+                await self.bot.send_message(aid, text, parse_mode="Markdown")
+            except Exception as e:
+                logger.error(f"Startup notification error: {e}")
+
+        # Сохраняем версию
+        with open(state_file, "w") as f:
+            f.write(VERSION)
+
     async def run(self):
-        """Запуск бота"""
-        print("=" * 60)
-        print("🛡️  Marzban Security Bot v3")
-        print("=" * 60)
+        print(f"\n{'='*50}")
+        print(f"🛡️  SystemFlow v{VERSION}")
         print(f"📋 Panels: {', '.join([p['name'] for p in PANELS])}")
         print(f"👥 Admins: {len(Config.ADMIN_USER_IDS)}")
         print(f"🔒 Autoban: {'ON' if Config.AUTOBAN_ENABLED else 'OFF'}")
-        print("=" * 60)
+        print(f"{'='*50}\n")
 
-        # Настройка
         self.setup_callbacks()
         self.setup_handlers()
-
-        # Запуск мониторов
         self.sys_monitor.start()
         self.docker_monitor.start()
         self.log_monitor.start_all()
+        asyncio.create_task(self.periodic())
 
-        # Запуск периодических задач
-        asyncio.create_task(self.periodic_tasks())
+        # Уведомление о запуске
+        await self.send_startup_notification()
 
-        # Запуск бота
-        logger.info("Starting bot...")
+        logger.info("Starting polling...")
         await self.dp.start_polling(self.bot)
 
 
@@ -328,6 +538,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 Bot stopped")
+        print("\n👋 Stopped")
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
+        logger.error(f"Fatal: {e}")
