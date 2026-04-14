@@ -223,30 +223,30 @@ class MarzbanBot:
         uid = message.from_user.id
         text = message.text.strip()
 
-        # Маршрутизация по тексту reply-кнопок
-        if text == i18n.get("btn_status"):
+        # Маршрутизация по тексту reply-кнопок (с учётом языка)
+        if text == i18n.get("btn_status", uid):
             await self.cmd_status(message)
-        elif text == i18n.get("btn_security"):
+        elif text == i18n.get("btn_security", uid):
             await message.answer(f"🔒 {i18n.get('security_menu_title', uid)}", parse_mode="Markdown",
                                  reply_markup=self._get_security_kb(uid))
-        elif text == i18n.get("btn_banned"):
+        elif text == i18n.get("btn_banned", uid):
             await self.cmd_banned(message)
-        elif text == i18n.get("btn_connections"):
+        elif text == i18n.get("btn_connections", uid):
             await self.cmd_connections(message)
-        elif text == i18n.get("btn_logs"):
+        elif text == i18n.get("btn_logs", uid):
             await message.answer("📝 Отправьте `/logs 50`", parse_mode="Markdown")
-        elif text == i18n.get("btn_users"):
+        elif text == i18n.get("btn_users", uid):
             await message.answer("👥 Команда `/users` (нужен API токен)", parse_mode="Markdown")
-        elif text == i18n.get("btn_docker"):
+        elif text == i18n.get("btn_docker", uid):
             await message.answer(f"🐳 {i18n.get('cmd_docker_title', uid)}", parse_mode="Markdown",
                                  reply_markup=self._get_docker_kb(uid))
-        elif text == i18n.get("btn_backup"):
+        elif text == i18n.get("btn_backup", uid):
             await self.cmd_backup(message)
-        elif text == i18n.get("btn_reports"):
+        elif text == i18n.get("btn_reports", uid):
             await message.answer("📈 Отчёты в разработке", parse_mode="Markdown")
-        elif text == i18n.get("btn_settings"):
+        elif text == i18n.get("btn_settings", uid):
             await self._show_settings(message)
-        elif text == i18n.get("btn_help"):
+        elif text == i18n.get("btn_help", uid):
             await self.cmd_help(message)
         else:
             await message.answer(i18n.get("unknown_command", uid), reply_markup=self._get_main_kb(uid))
@@ -275,17 +275,20 @@ class MarzbanBot:
                 lang = data.split(":")[1]
                 i18n.set_user_lang(uid, lang)
                 self.db.save_user_settings(uid, callback.from_user.username, lang)
-                await callback.answer(i18n.get("language_set", uid))
-                # Удаляем inline клавиатуру языка и отправляем главное меню с reply
-                await callback.message.edit_text(
-                    i18n.get("language_set", uid),
-                    reply_markup=types.ReplyKeyboardRemove()
-                )
+
+                # Отправляем подтверждение + reply-клавиатуру
+                lang_name = "🇷🇺 Русский" if lang == "ru" else "🇬🇧 English"
+                await callback.answer(f"✅ {lang_name}", show_alert=False)
+
                 await callback.message.answer(
-                    f"✅ {i18n.get('main_menu', uid)}",
-                    reply_markup=self._get_main_kb(uid),
-                    parse_mode="Markdown"
+                    f"✅ {i18n.get('language_set', uid)}\n\n{i18n.get('main_menu', uid)} 👇",
+                    reply_markup=self._get_main_kb(uid)
                 )
+                # Удаляем сообщение с выбором языка
+                try:
+                    await callback.message.delete()
+                except:
+                    pass
 
             elif data.startswith("ban_ip:"):
                 ip = data.split(":", 1)[1]
