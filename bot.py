@@ -154,16 +154,17 @@ class BotApp:
             try:
                 await target.message.edit_text(text, reply_markup=kb)
                 await target.answer()
+                return  # Успешно — выходим
+            except Exception:
+                # При любой ошибке edit — показываем popup вместо нового сообщения
+                await target.answer("⚠️ Не удалось обновить", show_alert=True)
                 return
-            except Exception as e:
-                # Игнорируем "message is not modified" — данные те же
-                if "not modified" not in str(e):
-                    logger.error(f"Edit error: {e}")
+        # Первое сообщение (не refresh)
         if isinstance(target, types.CallbackQuery):
             await target.message.answer(text, reply_markup=kb)
             await target.answer()
         else:
-            await self.bot.send_message(target.chat.id, text, reply_markup=kb)
+            await target.answer(text, reply_markup=kb)
 
     # ========== ГЛАВНЫЕ ЭКРАНЫ ==========
 
@@ -200,7 +201,21 @@ class BotApp:
             [IKB("🔄 " + i18n.get("refresh", uid), "refresh_status")],
             [IKB("🏠 " + i18n.get("btn_back", uid), "back_to_main")],
         ])
-        await self._send_inline(target, text, inline_kb, is_refresh)
+        # Refresh: редактируем то же сообщение
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=inline_kb)
+                await target.answer()
+                return
+            except Exception as e:
+                if "not modified" not in str(e):
+                    logger.error(f"Status edit error: {e}")
+        # Первое сообщение
+        if isinstance(target, types.CallbackQuery):
+            await target.message.answer(text, reply_markup=inline_kb)
+            await target.answer()
+        else:
+            await target.answer(text, reply_markup=inline_kb)
 
     async def _show_security(self, target, uid):
         text = f"🔒 **{i18n.get('security_menu', uid)}**"
