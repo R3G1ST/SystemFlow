@@ -148,6 +148,21 @@ class BotApp:
             [IKB(i18n.get("btn_back", uid), "back_to_main")],
         ])
 
+    async def _send_inline(self, target, text, kb, is_refresh=False):
+        """Отправка/редактирование с inline-клавиатурой"""
+        if is_refresh and isinstance(target, types.CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+                await target.answer()
+                return
+            except Exception as e:
+                logger.error(f"Edit error: {e}")
+        if isinstance(target, types.CallbackQuery):
+            await target.message.answer(text, reply_markup=kb)
+            await target.answer()
+        else:
+            await self.bot.send_message(target.chat.id, text, reply_markup=kb)
+
     # ========== ГЛАВНЫЕ ЭКРАНЫ ==========
 
     async def _show_status(self, target, uid, is_refresh=False):
@@ -183,19 +198,7 @@ class BotApp:
             [IKB("🔄 " + i18n.get("refresh", uid), "refresh_status")],
             [IKB("🏠 " + i18n.get("btn_back", uid), "back_to_main")],
         ])
-        # Если обновление — редактируем
-        if is_refresh and isinstance(target, types.CallbackQuery):
-            try:
-                await target.message.edit_text(text, reply_markup=inline_kb)
-                await target.answer()
-                return
-            except: pass
-        # Первое сообщение: inline 🔄 + reply главное меню
-        if isinstance(target, types.CallbackQuery):
-            await target.message.answer(text, reply_markup=inline_kb)
-            await target.answer()
-        else:
-            await target.answer(text, reply_markup=inline_kb)
+        await self._send_inline(target, text, inline_kb, is_refresh)
 
     async def _show_security(self, target, uid):
         text = f"🔒 **{i18n.get('security_menu', uid)}**"
@@ -237,7 +240,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     # ===== ТОП АТАКУЮЩИХ =====
 
@@ -260,7 +263,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     # ===== СОЕДИНЕНИЯ =====
 
@@ -291,7 +294,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     # ===== ЛОГИ =====
 
@@ -302,7 +305,7 @@ class BotApp:
             [IKB("100", "logs:100"), IKB("200", "logs:200")],
             [IKB(i18n.get("btn_back", uid), "back_to_main")],
         ])
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     async def _show_logs_lines(self, target, uid, count, is_refresh=False):
         try:
@@ -326,7 +329,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     async def _show_logs_sec(self, target, uid):
         await self._show_logs_select(target, uid)
@@ -353,7 +356,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     # ===== DOCKER ЛОГИ =====
 
@@ -385,7 +388,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     # ===== UNBAN =====
 
@@ -409,7 +412,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     # ===== ПОЛЬЗОВАТЕЛИ =====
 
@@ -480,7 +483,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     async def _show_report_ram(self, target, uid, is_refresh=False):
         metrics = self.db.get_recent_metrics(100)
@@ -505,7 +508,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     async def _show_report_attacks(self, target, uid, is_refresh=False):
         stats = self.db.get_weekly_stats()
@@ -529,7 +532,7 @@ class BotApp:
                 await target.answer()
                 return
             except: pass
-        await self._send(target, text, kb)
+        await self._send_inline(target, text, kb, is_refresh)
 
     async def _show_report_daily(self, target, uid):
         stats = self.db.get_today_stats()
