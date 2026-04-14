@@ -156,7 +156,9 @@ class BotApp:
                 await target.answer()
                 return
             except Exception as e:
-                logger.error(f"Edit error: {e}")
+                # Игнорируем "message is not modified" — данные те же
+                if "not modified" not in str(e):
+                    logger.error(f"Edit error: {e}")
         if isinstance(target, types.CallbackQuery):
             await target.message.answer(text, reply_markup=kb)
             await target.answer()
