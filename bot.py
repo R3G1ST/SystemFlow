@@ -721,7 +721,24 @@ class BotApp:
         self.dp.message.register(self.handle_text)
         self.dp.callback_query.register(self.handle_callback)
 
-    async def _cmd_start(self, msg): await self.handle_text(msg)
+    async def _cmd_start(self, msg: types.Message):
+        uid = msg.from_user.id
+        if uid not in Config.ADMIN_USER_IDS:
+            await msg.answer(i18n.get("no_access", uid))
+            return
+        settings = self.db.get_user_settings(uid)
+        lang = settings.get("language", "ru") if settings else "ru"
+        i18n.set_user_lang(uid, lang)
+        # Если язык уже выбран — сразу главное меню
+        if settings:
+            await msg.answer(f"🏠 {i18n.get('main_menu', uid)}", reply_markup=self._main_kb(uid))
+        else:
+            await msg.answer(
+                f"👋 {i18n.get('welcome', uid, name=msg.from_user.first_name)}\n\n"
+                f"{i18n.get('welcome_sub', uid)}\n\n"
+                f"{i18n.get('welcome_feat', uid)}",
+                reply_markup=self._lang_kb()
+            )
     async def _cmd_status(self, msg): await self._show_status(msg, msg.from_user.id)
     async def _cmd_help(self, msg): await self._send(msg, i18n.get("help", msg.from_user.id), self._main_kb(msg.from_user.id))
 
