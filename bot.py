@@ -126,7 +126,7 @@ class BotApp:
     def _reports_kb(self, uid):
         return ReplyKeyboardMarkup(keyboard=[
             [KB(i18n.get("btn_reports_cpu", uid)), KB(i18n.get("btn_reports_ram", uid))],
-            [KB(i18n.get("btn_reports_attacks", uid)), KB(i18n.get("btn_reports_daily", uid))],
+            [KB(i18n.get("btn_reports_attacks", uid)), KB(i18n.get("reports_daily", uid))],
             [KB(i18n.get("btn_back", uid))],
         ], resize_keyboard=True)
 
@@ -510,7 +510,7 @@ class BotApp:
             await self._show_report_ram(msg, uid)
         elif t == i18n.get("btn_reports_attacks", uid):
             await self._show_report_attacks(msg, uid)
-        elif t == i18n.get("btn_reports_daily", uid):
+        elif t == i18n.get("reports_daily", uid):
             await self._show_report_daily(msg, uid)
         else:
             await self._send(msg, f"❓ {i18n.get('unknown', uid)}", self._main_kb(uid))
