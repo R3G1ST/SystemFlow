@@ -25,6 +25,10 @@ from monitors.system_monitor import SystemMonitor
 from monitors.docker_monitor import DockerMonitor
 from utils import IptablesManager, GeoIPLookup, BackupManager
 
+# Алиасы
+def KB(t): return KeyboardButton(text=t)
+def IKB(t, c): return InlineKeyboardButton(text=t, callback_data=c)
+Markdown = ParseMode.MARKDOWN
 VERSION = "3.0.0"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -743,11 +747,6 @@ class BotApp:
         logger.info("Starting polling...")
         await self.dp.start_polling(self.bot)
 
-
-# Алиасы для краткости
-KB = KeyboardButton
-IKB = InlineKeyboardButton
-Markdown = ParseMode.MARKDOWN
 
 
 async def main():
