@@ -717,7 +717,7 @@ class BotApp:
         self.dp.message.register(self.handle_text)
         self.dp.callback_query.register(self.handle_callback)
 
-    async def _cmd_start(self, msg): self.handle_text(msg)
+    async def _cmd_start(self, msg): await self.handle_text(msg)
     async def _cmd_status(self, msg): await self._show_status(msg, msg.from_user.id)
     async def _cmd_help(self, msg): await self._send(msg, i18n.get("help", msg.from_user.id), self._main_kb(msg.from_user.id))
 
