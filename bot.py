@@ -179,24 +179,23 @@ class BotApp:
             for p in s["top_processes"][:3]:
                 text += f"• `{p['name']}` — CPU: {p['cpu']}%, RAM: {p['mem']:.1f}%\n"
 
-        kb = InlineKeyboardMarkup(inline_keyboard=[
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[
             [IKB("🔄 " + i18n.get("refresh", uid), "refresh_status")],
+            [IKB("🏠 " + i18n.get("btn_back", uid), "back_to_main")],
         ])
-        # Если обновление — редактируем, иначе новое сообщение
+        # Если обновление — редактируем
         if is_refresh and isinstance(target, types.CallbackQuery):
             try:
-                await target.message.edit_text(text, reply_markup=kb)
+                await target.message.edit_text(text, reply_markup=inline_kb)
                 await target.answer()
                 return
-            except:
-                pass
-        # Обычное новое сообщение с reply-клавиатурой
-        main_kb = self._main_kb(uid)
+            except: pass
+        # Первое сообщение: inline 🔄 + reply главное меню
         if isinstance(target, types.CallbackQuery):
-            await target.message.answer(text, reply_markup=main_kb)
+            await target.message.answer(text, reply_markup=inline_kb)
             await target.answer()
         else:
-            await target.answer(text, reply_markup=main_kb)
+            await target.answer(text, reply_markup=inline_kb)
 
     async def _show_security(self, target, uid):
         text = f"🔒 **{i18n.get('security_menu', uid)}**"
