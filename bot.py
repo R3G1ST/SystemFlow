@@ -212,7 +212,7 @@ class BotApp:
             flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
             text += f"• `{b['ip']}` {flag} — {geo.get('country', '?')}\n  📅 {b['banned_at'][:16]}\n\n"
             kb_btns.append([IKB(f"🔓 {b['ip']}", f"unban_ip:{b['ip']}")])
-        kb_btns.append([IKB(i18n.get("btn_back", uid), "back_to_main")])
+        kb_btns.append([IKB("🔄 " + i18n.get("refresh", uid), "refresh_banned"), IKB(i18n.get("btn_back", uid), "back_to_main")])
         await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
 
     # ===== ТОП АТАКУЮЩИХ =====
@@ -227,7 +227,10 @@ class BotApp:
             geo = GeoIPLookup.lookup(a["ip"])
             flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
             text += f"{i}. `{a['ip']}` {flag} — **{a['attempts']}** попыток\n"
-        await self._send(target, text, self._back_kb(uid))
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), "refresh_attackers"), IKB(i18n.get("btn_back", uid), "back_to_main")]
+        ])
+        await self._send(target, text, kb)
 
     # ===== СОЕДИНЕНИЯ =====
 
@@ -249,7 +252,10 @@ class BotApp:
                 text += f"ℹ️ {i18n.get('no_connections', uid)}"
         except Exception as e:
             text = f"❌ {e}"
-        await self._send(target, text, self._main_kb(uid))
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), "refresh_connections"), IKB(i18n.get("btn_back", uid), "back_to_main")]
+        ])
+        await self._send(target, text, kb)
 
     # ===== ЛОГИ =====
 
@@ -275,7 +281,10 @@ class BotApp:
                 text = f"ℹ️ {i18n.get('logs_empty', uid)}"
         except Exception as e:
             text = f"❌ {e}"
-        await self._send(target, text, self._back_kb(uid))
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), f"logs:{count}"), IKB(i18n.get("btn_back", uid), "back_to_main")]
+        ])
+        await self._send(target, text, kb)
 
     async def _show_logs_sec(self, target, uid):
         await self._show_logs_select(target, uid)
@@ -294,7 +303,7 @@ class BotApp:
             text += f"{icon} `{c['name']}`\n"
             if c["running"]:
                 kb_btns.append([IKB(f"🔄 {c['name']}", f"docker_restart:{c['name']}")])
-        kb_btns.append([IKB(i18n.get("btn_back", uid), "back_to_main")])
+        kb_btns.append([IKB("🔄 " + i18n.get("refresh", uid), "cb_docker_containers"), IKB(i18n.get("btn_back", uid), "back_to_main")])
         await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
 
     # ===== DOCKER ЛОГИ =====
@@ -319,7 +328,7 @@ class BotApp:
         except Exception as e:
             text = f"❌ {e}"
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [IKB(i18n.get("btn_back", uid), "cb_docker_containers")]
+            [IKB("🔄 " + i18n.get("refresh", uid), f"dlogs:{container}"), IKB(i18n.get("btn_back", uid), "cb_docker_containers")]
         ])
         await self._send(target, text, kb)
 
@@ -337,7 +346,7 @@ class BotApp:
             flag = GeoIPLookup.get_country_flag(geo.get("country_code", "??"))
             text += f"• `{b['ip']}` {flag}\n"
             kb_btns.append([IKB(f"🔓 {b['ip']}", f"unban_ip:{b['ip']}")])
-        kb_btns.append([IKB(i18n.get("btn_back", uid), "back_to_main")])
+        kb_btns.append([IKB("🔄 " + i18n.get("refresh", uid), "cb_unban"), IKB(i18n.get("btn_back", uid), "back_to_main")])
         await self._send(target, text, InlineKeyboardMarkup(inline_keyboard=kb_btns))
 
     # ===== ПОЛЬЗОВАТЕЛИ =====
@@ -384,16 +393,63 @@ class BotApp:
         else:
             await self._send(target, f"❌ {i18n.get('backup_failed', uid)}", self._main_kb(uid))
 
-    # ===== ОТЧЁТЫ =====
+    # ===== ОТЧЁТЫ С ГРАФИКАМИ =====
 
     async def _show_report_cpu(self, target, uid):
-        await self._send(target, "📈 График CPU — в разработке", self._reports_kb(uid))
+        metrics = self.db.get_recent_metrics(100)
+        if not metrics:
+            await self._send(target, "📊 Нет данных для графика CPU", self._reports_kb(uid))
+            return
+        metrics.reverse()
+        text = "📈 **График CPU**\n\n"
+        for i, m in enumerate(metrics):
+            t = m['timestamp'][11:16]
+            v = int(m['cpu_percent'])
+            bar = "▓" * (v // 5) + "░" * (20 - v // 5)
+            text += f"`{t}` [{bar}] {v:.0f}%\n"
+            if i >= 20:
+                break
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), "cb_report_cpu"), IKB(i18n.get("btn_back", uid), "back_to_main")]
+        ])
+        await self._send(target, text, kb)
 
     async def _show_report_ram(self, target, uid):
-        await self._send(target, "📈 График RAM — в разработке", self._reports_kb(uid))
+        metrics = self.db.get_recent_metrics(100)
+        if not metrics:
+            await self._send(target, "📊 Нет данных для графика RAM", self._reports_kb(uid))
+            return
+        metrics.reverse()
+        text = "📈 **График RAM**\n\n"
+        for i, m in enumerate(metrics):
+            t = m['timestamp'][11:16]
+            v = int(m['ram_percent'])
+            bar = "▓" * (v // 5) + "░" * (20 - v // 5)
+            text += f"`{t}` [{bar}] {v:.0f}%\n"
+            if i >= 20:
+                break
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), "cb_report_ram"), IKB(i18n.get("btn_back", uid), "back_to_main")]
+        ])
+        await self._send(target, text, kb)
 
     async def _show_report_attacks(self, target, uid):
-        await self._send(target, "📈 График атак — в разработке", self._reports_kb(uid))
+        stats = self.db.get_weekly_stats()
+        if not stats:
+            await self._send(target, "📊 Нет данных об атаках", self._reports_kb(uid))
+            return
+        stats.reverse()
+        text = "📈 **График атак (7 дней)**\n\n"
+        for s in stats:
+            d = s['date'][5:]
+            a = s['attempts']
+            u = s['unique_ips']
+            bar = "▓" * min(a, 20) + "░" * (20 - min(a, 20))
+            text += f"`{d}` [{bar}] {a} попыток, {u} IP\n"
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [IKB("🔄 " + i18n.get("refresh", uid), "cb_report_attacks"), IKB(i18n.get("btn_back", uid), "back_to_main")]
+        ])
+        await self._send(target, text, kb)
 
     async def _show_report_daily(self, target, uid):
         stats = self.db.get_today_stats()
@@ -584,6 +640,27 @@ class BotApp:
 
             elif data == "cb_docker_containers":
                 await self._show_docker_containers(cb, uid)
+
+            elif data == "cb_unban":
+                await self._show_unban(cb, uid)
+
+            elif data == "refresh_banned":
+                await self._show_banned(cb, uid)
+
+            elif data == "refresh_attackers":
+                await self._show_top_attackers(cb, uid)
+
+            elif data == "refresh_connections":
+                await self._show_connections(cb, uid)
+
+            elif data == "cb_report_cpu":
+                await self._show_report_cpu(cb, uid)
+
+            elif data == "cb_report_ram":
+                await self._show_report_ram(cb, uid)
+
+            elif data == "cb_report_attacks":
+                await self._show_report_attacks(cb, uid)
 
             elif data == "noop":
                 await cb.answer()
